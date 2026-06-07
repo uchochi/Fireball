@@ -1,0 +1,28 @@
+{
+  "name": "@dede/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@dede/shared": "*",
+    "@fastify/cors": "^9.0.0",
+    "@fastify/env": "^4.3.0",
+    "@fastify/rate-limit": "^9.1.0",
+    "@supabase/supabase-js": "^2.107.0",
+    "fastify": "^4.26.0",
+    "openai": "^6.42.0",
+    "puppeteer": "^25.1.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}
