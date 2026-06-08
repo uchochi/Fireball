@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const ORIGIN = import.meta.env.VITE_API_URL;
+const API_BASE = ORIGIN ? `${ORIGIN}/api` : '/api';
 
 async function request(path: string, options?: RequestInit) {
   const session = await import('./supabase').then((m) => m.supabase.auth.getSession());
