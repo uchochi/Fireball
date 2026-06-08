@@ -196,7 +196,8 @@ Three services need to be deployed:
 4. Add the environment variables (from the table above) to each service
 5. Set `CORS_ORIGIN` to your web app's Railway domain
 6. Set `WEBAPP_URL` to your web app's Railway domain
-7. For the bot, either set `WEBHOOK_URL` to the API's Railway domain (webhook mode) or leave empty (polling mode)
+7. **Important**: Set `RAILPACK_NO_SPA=true` on the web service — this tells Railpack to use your Node.js server (`server.cjs`) for routing instead of Caddy. Without this, direct navigation to SPA routes (like `/login`, `/create`) returns 404.
+8. For the bot, either set `WEBHOOK_URL` to the API's Railway domain (webhook mode) or leave empty (polling mode)
 
 ### Option B: Fly.io (API + Bot) + Vercel (Web)
 
@@ -264,6 +265,7 @@ pm2 startup
 - [ ] Paystack webhook configured: `<DEPLOYED_API_URL>/api/webhooks/paystack`
 - [ ] Daily cron set up for `worker.ts batch` (e.g., cron job or Railway cron)
 - [ ] CORS_ORIGIN matches the actual web app URL
+- [ ] Railway env var **RAILPACK_NO_SPA** = `true` on the web service (prevents Caddy from handling SPA routes; your Node.js server handles fallback properly)
 
 ---
 
