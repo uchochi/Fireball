@@ -5,6 +5,7 @@
     "apps/*",
     "packages/*"
   ],
+  "engines": { "node": ">=22" },
   "scripts": {
     "dev": "concurrently -n api,web,bot -c blue,green,yellow \"npm run dev -w apps/api\" \"npm run dev -w apps/web\" \"npm run dev -w apps/bot\"",
     "dev:api": "npm run dev -w apps/api",
