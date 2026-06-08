@@ -2,12 +2,12 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm run build -w packages/shared && npm run build -w apps/api",
-    "watchPatterns": ["apps/api/**", "packages/shared/**"]
+    "buildCommand": "npm run build -w packages/shared && npm run build -w apps/api && npm run build -w apps/bot",
+    "watchPatterns": ["apps/api/**", "apps/bot/**", "packages/shared/**"]
   },
   "deploy": {
     "numReplicas": 1,
-    "startCommand": "node apps/api/dist/index.js",
+    "startCommand": "node start-all.js",
     "healthcheckPath": "/api/health",
     "restartPolicyType": "ON_FAILURE"
   }
