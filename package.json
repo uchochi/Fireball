@@ -15,6 +15,9 @@
     "build:api": "npm run build -w apps/api",
     "build:bot": "npm run build -w apps/bot",
     "start": "node apps/web/server.cjs",
+    "start:api": "node apps/api/dist/index.js",
+    "start:bot": "node apps/bot/dist/index.js",
+
     "lint": "eslint . --ext .ts,.tsx --ignore-path .gitignore",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
