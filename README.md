@@ -160,6 +160,7 @@ npx tsx apps/api/src/worker.ts process-job <job-id>
 |----------|----------|-------------|
 | `VITE_SUPABASE_URL` | **Yes** | Same as `SUPABASE_URL` from root .env |
 | `VITE_SUPABASE_ANON_KEY` | **Yes** | Same as `SUPABASE_ANON_KEY` from root .env |
+| `VITE_API_URL` | No* | Railway API domain (e.g. `https://api.up.railway.app`). Defaults to `/api` (same-origin proxy). Required when web app is on a different domain than the API. |
 
 ---
 
@@ -185,51 +186,49 @@ Three services need to be deployed:
                             └─────────────────┘
 ```
 
-### Option A: Railway (recommended for all-in-one)
+### Option A: Railway (all services)
 
 1. Push your repo to GitHub
 2. [Create a Railway project](https://railway.app/new) linked to the repo
 3. Add three services:
-   - **Web**: root dir = `apps/web`, build command = `npm run build`, start command = `node server.cjs`
    - **API**: root dir = `apps/api`, build command = `npm run build`, start command = `node dist/index.js`
    - **Bot**: root dir = `apps/bot`, build command = `npm run build`, start command = `node dist/index.js`
 4. Add the environment variables (from the table above) to each service
-5. Set `CORS_ORIGIN` to your web app's Railway domain
-6. Set `WEBAPP_URL` to your web app's Railway domain
-7. **Important**: Set `RAILPACK_NO_SPA=true` on the web service — this tells Railpack to use your Node.js server (`server.cjs`) for routing instead of Caddy. Without this, direct navigation to SPA routes (like `/login`, `/create`) returns 404.
-8. For the bot, either set `WEBHOOK_URL` to the API's Railway domain (webhook mode) or leave empty (polling mode)
+5. Set `CORS_ORIGIN` to your web app's domain
+6. Set `WEBAPP_URL` to your web app's domain
+7. For the bot, either set `WEBHOOK_URL` to the API's Railway domain (webhook mode) or leave empty (polling mode)
 
-### Option B: Fly.io (API + Bot) + Vercel (Web)
+### Option B: Vercel (Web) + Railway (API + Bot) — recommended
 
 **Web → Vercel:**
 
-```bash
-cd apps/web
-npx vercel --prod
-```
+1. Go to [vercel.com](https://vercel.com) → **Add New Project** → import your GitHub repo
+2. Set **Root Directory** to `apps/web`
+3. Set **Build Command** to `npm run build`
+4. Set **Output Directory** to `dist`
+5. Add environment variables:
+   - `VITE_SUPABASE_URL` — from Supabase dashboard
+   - `VITE_SUPABASE_ANON_KEY` — from Supabase dashboard
+   - `VITE_API_URL` — your Railway API domain (e.g. `https://api.up.railway.app`)
+6. Deploy
 
-Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel environment variables.
+The `vercel.json` in `apps/web/` handles SPA routing (all paths fall back to `index.html`).
 
-**API + Bot → Fly.io:**
+**API → Railway:**
 
-```bash
-# Install flyctl: https://fly.io/docs/hands-on/install-flyctl/
+1. [Create a Railway project](https://railway.app/new) linked to your repo
+2. Add service: root dir = `apps/api`, build command = `npm run build`, start command = `node dist/index.js`
+3. Add env vars: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_BOT_TOKEN`, `OPENROUTER_API_KEY`, `PAYSTACK_SECRET_KEY`
+4. **Important**: Set `CORS_ORIGIN` to your Vercel domain (so the web app can make API calls)
 
-# API
-cd apps/api
-fly launch
-fly secrets set SUPABASE_URL=... SUPABASE_ANON_KEY=... SUPABASE_SERVICE_ROLE_KEY=... \
-  TELEGRAM_BOT_TOKEN=... OPENROUTER_API_KEY=... PAYSTACK_SECRET_KEY=...
-fly deploy
+**Bot → Railway:**
 
-# Bot
-cd apps/bot
-fly launch
-fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... TELEGRAM_BOT_TOKEN=... WEBAPP_URL=...
-fly deploy
-```
+1. Add service: root dir = `apps/bot`, build command = `npm run build`, start command = `node dist/index.js`
+2. Add env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_BOT_TOKEN`, `WEBAPP_URL`
 
-Set `CORS_ORIGIN` to your Vercel domain and `WEBHOOK_URL` to your Fly API domain for the bot.
+### Option C: Fly.io (API + Bot) + Vercel (Web)
+
+Same as Option B for Vercel, but deploy API and Bot on Fly.io instead.
 
 ### Option C: Traditional VPS (Ubuntu/Debian)
 
@@ -260,6 +259,7 @@ pm2 startup
 
 - [ ] Supabase Storage bucket `content-screenshots` exists and is public
 - [ ] Supabase Auth Site URL points to deployed web app (for session handling)
+- [ ] Railway API `CORS_ORIGIN` env var set to your Vercel domain (if web is on Vercel)
 - [ ] Telegram Bot webhook set (if using webhook mode): `https://api.telegram.org/bot<TOKEN>/setWebhook?url=<DEPLOYED_API_URL>/api/webhooks/telegram`
 - [ ] WhatsApp webhook configured in Meta dashboard: `<DEPLOYED_API_URL>/api/webhooks/whatsapp`
 - [ ] Paystack webhook configured: `<DEPLOYED_API_URL>/api/webhooks/paystack`

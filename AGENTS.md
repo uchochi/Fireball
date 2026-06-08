@@ -15,7 +15,8 @@ dede/
 └── supabase/migrations/  SQL to run in Supabase SQL Editor
 ```
 
-- **Auth**: Supabase Auth (email/password + Telegram Mini App HMAC validation)
+- **Deployment**: Web on Vercel (static SPA), API + Bot on Railway. The web app uses `VITE_API_URL` env var to point to the Railway API.
+- **Auth**: Telegram Mini App only (no email/password). HMAC-validated initData → deterministic Supabase Auth session.
 - **Database**: PostgreSQL via Supabase (Row Level Security on all tables)
 - **AI**: OpenRouter (default `openai/gpt-4o`) → generates JSON with HTML template → Puppeteer renders JPEG
 - **Payments**: Paystack (dedicated virtual accounts per user for transfer payments)
