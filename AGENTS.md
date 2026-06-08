@@ -39,6 +39,7 @@ Then run the SQL in `supabase/migrations/00001_schema.sql` in the Supabase SQL E
 | `npm run dev:bot` | Telegram bot |
 | `npm run typecheck` | TypeScript check all |
 | `npm run lint` | ESLint all |
+| `npm run start` | Production web static server (via `server.cjs`) |
 | `npm run build` | Build all |
 
 ## Worker commands (background jobs)

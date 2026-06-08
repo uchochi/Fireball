@@ -190,7 +190,7 @@ Three services need to be deployed:
 1. Push your repo to GitHub
 2. [Create a Railway project](https://railway.app/new) linked to the repo
 3. Add three services:
-   - **Web**: root dir = `apps/web`, build command = `npm run build`, start command = `node server.js`
+   - **Web**: root dir = `apps/web`, build command = `npm run build`, start command = `node server.cjs`
    - **API**: root dir = `apps/api`, build command = `npm run build`, start command = `node dist/index.js`
    - **Bot**: root dir = `apps/bot`, build command = `npm run build`, start command = `node dist/index.js`
 4. Add the environment variables (from the table above) to each service

@@ -1,9 +1,7 @@
-import http from 'node:http';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dirname, 'dist');
 const PORT = parseInt(process.env.PORT || '5173', 10);
 
