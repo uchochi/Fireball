@@ -9,7 +9,7 @@ Curated and AI-generated WhatsApp & Telegram status content platform — Nigeria
 | Frontend | React 18 + TypeScript (Vite) |
 | Backend | Fastify + TypeScript (Node.js) |
 | Database | PostgreSQL via Supabase |
-| Auth | Supabase Auth (email/password + Telegram Mini App HMAC) |
+| Auth | Telegram Mini App HMAC (only auth method) |
 | Storage | Supabase Storage (screenshots, logos) |
 | AI | OpenRouter (OpenAI-compatible API) |
 | Screenshots | Puppeteer (HTML → JPEG) |
@@ -79,8 +79,8 @@ This single migration creates all 9 tables, Row Level Security policies, indexes
 ### 5. Supabase — Configure Authentication
 
 1. Supabase Dashboard → **Authentication** → **Settings**
-2. Under **Sign up / Sign in** → ensure **Email + Password** is enabled
-3. **Confirm email**: disable if you want instant sign-up during development
+2. Disable **Email + Password** sign-in (not used — auth is Telegram-only)
+3. Disable **Confirm email** if enabled
 4. Under **Site URL**: set to your web app URL (`http://localhost:5173` for local dev)
 
 ### 6. Install a Chromium browser (for screenshot rendering)
@@ -140,7 +140,7 @@ npx tsx apps/api/src/worker.ts process-job <job-id>
 | `SUPABASE_SERVICE_ROLE_KEY` | **Yes** | — | Supabase service_role key (server only — never expose) |
 | `PORT` | No | `3001` | API server port |
 | `CORS_ORIGIN` | No | `http://localhost:5173` | Allowed CORS origin for the API |
-| `TELEGRAM_BOT_TOKEN` | Yes* | — | Bot token from BotFather |
+| `TELEGRAM_BOT_TOKEN` | **Yes** | — | Bot token from BotFather (required for auth) |
 | `WEBAPP_URL` | No | `http://localhost:5173` | Public URL of the web app (used by bot for Mini App button) |
 | `WEBHOOK_URL` | No | — | Public URL for bot webhook (`https://your-domain.com`). Leave empty for polling |
 | `WHATSAPP_API_TOKEN` | No | — | WhatsApp Cloud API permanent access token |
@@ -258,8 +258,7 @@ pm2 startup
 ### Post-deployment checklist
 
 - [ ] Supabase Storage bucket `content-screenshots` exists and is public
-- [ ] Supabase Auth Site URL points to deployed web app
-- [ ] Supabase Auth redirect URLs include deployed web app
+- [ ] Supabase Auth Site URL points to deployed web app (for session handling)
 - [ ] Telegram Bot webhook set (if using webhook mode): `https://api.telegram.org/bot<TOKEN>/setWebhook?url=<DEPLOYED_API_URL>/api/webhooks/telegram`
 - [ ] WhatsApp webhook configured in Meta dashboard: `<DEPLOYED_API_URL>/api/webhooks/whatsapp`
 - [ ] Paystack webhook configured: `<DEPLOYED_API_URL>/api/webhooks/paystack`
@@ -271,7 +270,8 @@ pm2 startup
 ## Telegram Mini App
 
 The web app doubles as a Telegram Mini App. When opened inside Telegram, it:
-- Authenticates via `window.Telegram.WebApp.initData` (HMAC-verified server-side)
+- Auto-authenticates via `window.Telegram.WebApp.initData` (HMAC-verified server-side)
+- Requests the user's phone number via `window.Telegram.WebApp.requestContact()` (optional — used as identifier)
 - Applies Telegram's native theme colors
 - Uses `MainButton` and `BackButton` for a native feel
 
@@ -329,9 +329,13 @@ Every table has **Row Level Security** enabled. Policies use `auth.uid()` to sco
 
 ### Auth
 
+- **Only auth method**: Telegram Mini App HMAC validation
 - The API uses `supabaseAdmin` (service_role key) for mutations that bypass RLS
 - The web app uses `supabase` (anon key) for authenticated user reads
-- Telegram Mini App auth validates `initData` HMAC server-side, then upserts the profile
+- Telegram `initData` is HMAC-verified server-side against the bot token; user identity is derived deterministically from `telegram_id`
+- A Supabase Auth session is created on the server using a deterministic password derived from `telegram_id` + bot token, and returned to the client via `supabase.auth.setSession()`
+- On first login, a Supabase Auth user is auto-created (synthetic email), along with profile + 14-day trial subscription
+- The user's Telegram phone number is collected via `window.Telegram.WebApp.requestContact()`
 
 ### Adding a new migration
 
@@ -351,5 +355,5 @@ npx supabase gen types typescript --linked > packages/shared/src/supabase-types.
 - **Content pipeline**: OpenRouter AI generates structured JSON → HTML template → Puppeteer screenshots to JPEG → stored in Supabase Storage
 - **Daily batch**: `worker.ts batch` cycles through 8 categories × 2 vibes × 4 aspect ratios to produce ~500 items
 - **Auto-publish**: A scheduled worker picks due jobs, screenshots content, and posts to WhatsApp/Telegram
-- **Telegram Mini App auth**: Server verifies `initData` by computing HMAC-SHA256(WebAppData, bot_token) and comparing the `hash` parameter
+- **Telegram Mini App auth (only method)**: Server verifies `initData` by computing HMAC-SHA256(WebAppData, bot_token) and comparing the `hash` parameter. A Supabase Auth session is created deterministically from `telegram_id` + bot token. No email/password required.
 - **Paystack flow**: User selects a plan → API calls Paystack to initialize transaction → user is redirected to Paystack → Paystack webhook activates the subscription

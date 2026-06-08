@@ -1,112 +1,124 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
+import { useTelegram } from '../hooks/useTelegram';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isSignup, setIsSignup] = useState(false);
+  const { initData, isMiniApp, webApp, requestPhone, loaded } = useTelegram();
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      if (isSignup) {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        // Profile creation handled by API for trial setup
-        await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, displayName: email.split('@')[0] }),
-        });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
-      navigate('/');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
+  useEffect(() => {
+    if (!loaded) return;
+    if (!isMiniApp || !initData) {
       setLoading(false);
+      return;
+    }
+
+    api.auth.telegram(initData)
+      .then(async (res) => {
+        if (res.access_token && res.refresh_token) {
+          await supabase.auth.setSession({
+            access_token: res.access_token,
+            refresh_token: res.refresh_token,
+          });
+          navigate('/', { replace: true });
+        }
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [initData, isMiniApp, navigate]);
+
+  const handleRequestPhone = async () => {
+    if (!webApp) return;
+    const { success, initData: newInitData } = await requestPhone();
+    if (success && newInitData) {
+      setLoading(true);
+      try {
+        const res = await api.auth.telegram(newInitData);
+        if (res.access_token && res.refresh_token) {
+          await supabase.auth.setSession({
+            access_token: res.access_token,
+            refresh_token: res.refresh_token,
+          });
+          navigate('/', { replace: true });
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Login failed');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  return (
-    <div style={{ maxWidth: '400px', margin: '40px auto', padding: '24px' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: 700, textAlign: 'center', marginBottom: '8px' }}>Welcome to DEDE</h1>
-      <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '32px' }}>
-        Curated Nigerian status content for WhatsApp & Telegram
-      </p>
+  if (!isMiniApp) {
+    return (
+      <div style={{ maxWidth: '400px', margin: '40px auto', padding: '24px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '16px' }}>Welcome to DEDE</h1>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
+          Open this app from your Telegram bot to log in.
+        </p>
+        <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+          Search for the DEDE bot on Telegram and open the Mini App.
+        </p>
+      </div>
+    );
+  }
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{
-            padding: '12px 16px',
-            borderRadius: 'var(--radius)',
-            border: '1px solid var(--border)',
-            background: 'var(--bg-card)',
-            color: 'var(--text-primary)',
-            fontSize: '16px',
-          }}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
-          style={{
-            padding: '12px 16px',
-            borderRadius: 'var(--radius)',
-            border: '1px solid var(--border)',
-            background: 'var(--bg-card)',
-            color: 'var(--text-primary)',
-            fontSize: '16px',
-          }}
-        />
+  if (loading) {
+    return (
+      <div style={{ maxWidth: '400px', margin: '40px auto', padding: '24px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '16px' }}>Welcome to DEDE</h1>
+        <p style={{ color: 'var(--text-secondary)' }}>Logging in via Telegram...</p>
+      </div>
+    );
+  }
 
-        {error && (
-          <p style={{ color: 'var(--danger)', fontSize: '14px', textAlign: 'center' }}>{error}</p>
-        )}
-
+  if (error) {
+    return (
+      <div style={{ maxWidth: '400px', margin: '40px auto', padding: '24px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '16px' }}>Welcome to DEDE</h1>
+        <p style={{ color: 'var(--danger)', marginBottom: '24px' }}>{error}</p>
         <button
-          type="submit"
-          disabled={loading}
+          onClick={() => window.location.reload()}
           style={{
-            padding: '14px',
+            padding: '14px 24px',
             borderRadius: 'var(--radius)',
             background: 'var(--accent)',
             color: '#000',
             fontSize: '16px',
             fontWeight: 600,
-            opacity: loading ? 0.7 : 1,
           }}
         >
-          {loading ? 'Please wait...' : isSignup ? 'Create Account (14-day free trial)' : 'Sign In'}
+          Retry
         </button>
-      </form>
+      </div>
+    );
+  }
 
-      <p style={{ textAlign: 'center', marginTop: '24px', color: 'var(--text-secondary)', fontSize: '14px' }}>
-        {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
-        <button
-          onClick={() => setIsSignup(!isSignup)}
-          style={{ background: 'none', color: 'var(--accent)', fontSize: '14px', textDecoration: 'underline' }}
-        >
-          {isSignup ? 'Sign in' : 'Sign up — free 14-day trial'}
-        </button>
+  return (
+    <div style={{ maxWidth: '400px', margin: '40px auto', padding: '24px', textAlign: 'center' }}>
+      <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px' }}>Welcome to DEDE</h1>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
+        Share your phone number to get started
       </p>
+      <button
+        onClick={handleRequestPhone}
+        style={{
+          padding: '14px 24px',
+          borderRadius: 'var(--radius)',
+          background: 'var(--accent)',
+          color: '#000',
+          fontSize: '16px',
+          fontWeight: 600,
+        }}
+      >
+        Share Phone Number
+      </button>
     </div>
   );
 }

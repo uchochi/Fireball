@@ -21,14 +21,17 @@ async function request(path: string, options?: RequestInit) {
   return res.json();
 }
 
+interface TelegramAuthResponse {
+  access_token: string;
+  refresh_token: string;
+  profile: Record<string, unknown>;
+  is_new_user: boolean;
+}
+
 export const api = {
   auth: {
-    signup: (email: string, password: string, displayName?: string) =>
-      request('/auth/signup', { method: 'POST', body: JSON.stringify({ email, password, displayName }) }),
-    signin: (email: string, password: string) =>
-      request('/auth/signin', { method: 'POST', body: JSON.stringify({ email, password }) }),
     telegram: (initData: string) =>
-      request('/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) }),
+      request('/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) }) as Promise<TelegramAuthResponse>,
   },
   content: {
     feed: (params?: { category?: string; vibe?: string; cursor?: string; limit?: number }) => {

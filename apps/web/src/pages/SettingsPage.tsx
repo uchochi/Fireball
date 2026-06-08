@@ -4,12 +4,26 @@ import type { User } from '@supabase/supabase-js';
 
 export function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [brandName, setBrandName] = useState('');
   const [vibePref, setVibePref] = useState('english');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return;
+      setUser(data.user);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+      if (profile) {
+        setBrandName(profile.brand_name || '');
+        setVibePref(profile.vibe_preference || 'english');
+        setPhoneNumber(profile.phone_number || '');
+      }
+    });
   }, []);
 
   const handleSave = async () => {
@@ -43,7 +57,7 @@ export function SettingsPage() {
           </label>
           <input
             value={brandName}
-            onChange={(e) => setBrandName(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBrandName(e.target.value)}
             placeholder="Your brand name"
             style={{
               width: '100%',
@@ -63,7 +77,7 @@ export function SettingsPage() {
           </label>
           <select
             value={vibePref}
-            onChange={(e) => setVibePref(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setVibePref(e.target.value)}
             style={{
               width: '100%',
               padding: '12px 16px',
@@ -79,14 +93,14 @@ export function SettingsPage() {
           </select>
         </div>
 
-        <div>
-          <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-            Account
-          </label>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-            {user.email}
-          </p>
-        </div>
+        {phoneNumber && (
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+              Phone Number
+            </label>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{phoneNumber}</p>
+          </div>
+        )}
 
         <button
           onClick={handleSave}

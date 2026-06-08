@@ -33,6 +33,7 @@ export const ProfileSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email().optional(),
   display_name: z.string().min(1).max(100).optional(),
+  phone_number: z.string().optional(),
   vibe_preference: Vibe.default('english'),
   brand_name: z.string().max(100).optional(),
   brand_logo_url: z.string().url().optional(),

@@ -11,7 +11,7 @@ export const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
   // Telegram
-  TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_BOT_TOKEN: z.string().min(1, { message: 'TELEGRAM_BOT_TOKEN is required for auth' }),
 
   // WhatsApp Cloud API
   WHATSAPP_API_TOKEN: z.string().optional(),

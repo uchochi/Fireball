@@ -27,6 +27,7 @@ export interface TelegramWebApp {
   };
   sendData: (data: string) => void;
   isExpanded: boolean;
+  requestContact?: (callback: () => void) => void;
 }
 
 declare global {
@@ -47,6 +48,8 @@ function getTelegramWebApp(): TelegramWebApp | null {
 export function useTelegram() {
   const [webApp, setWebApp] = useState<TelegramWebApp | null>(null);
   const [isMiniApp, setIsMiniApp] = useState(false);
+  const [initData, setInitData] = useState<string>('');
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     const tg = getTelegramWebApp();
@@ -55,6 +58,7 @@ export function useTelegram() {
       tg.expand();
       setWebApp(tg);
       setIsMiniApp(true);
+      setInitData(tg.initData);
 
       if (tg.themeParams.bg_color) {
         document.documentElement.style.setProperty('--tg-bg-color', tg.themeParams.bg_color);
@@ -66,7 +70,25 @@ export function useTelegram() {
         document.documentElement.style.setProperty('--tg-button-color', tg.themeParams.button_color);
       }
     }
+    setLoaded(true);
   }, []);
 
-  return { webApp, isMiniApp };
+  const requestPhone = (): Promise<{ success: boolean; initData: string }> => {
+    return new Promise((resolve) => {
+      const tg = getTelegramWebApp();
+      if (!tg) {
+        resolve({ success: false, initData: '' });
+        return;
+      }
+      tg.requestContact?.(() => {
+        const updated = getTelegramWebApp();
+        if (updated && updated.initData) {
+          setInitData(updated.initData);
+        }
+        resolve({ success: true, initData: updated?.initData || '' });
+      });
+    });
+  };
+
+  return { webApp, isMiniApp, initData, requestPhone, loaded };
 }

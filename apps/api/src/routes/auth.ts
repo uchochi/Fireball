@@ -1,64 +1,17 @@
+import crypto from 'node:crypto';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { supabase, supabaseAdmin } from '../db.js';
 
+function deriveEmail(telegramId: string): string {
+  return `tg_${telegramId}@dede.app`;
+}
+
+function derivePassword(telegramId: string, botToken: string): string {
+  const hash = crypto.createHash('sha256').update(`${telegramId}:${botToken}`).digest('hex');
+  return hash.slice(0, 32) + 'Aa1!';
+}
+
 export async function authRoutes(app: FastifyInstance, _opts: FastifyPluginOptions) {
-  // Sign up
-  app.post('/signup', async (request, reply) => {
-    const { email, password, displayName } = request.body as {
-      email: string;
-      password: string;
-      displayName?: string;
-    };
-
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-
-    if (error) {
-      return reply.status(400).send({ error: error.message });
-    }
-
-    // Create profile with 14-day trial
-    const trialEnds = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-    await supabaseAdmin.from('profiles').insert({
-      id: data.user.id,
-      email,
-      display_name: displayName || email.split('@')[0],
-      trial_ends_at: trialEnds,
-    });
-
-    // Create trial subscription record
-    await supabaseAdmin.from('user_subscriptions').insert({
-      user_id: data.user.id,
-      plan_id: null,
-      status: 'trial',
-      starts_at: new Date().toISOString(),
-      ends_at: trialEnds,
-    });
-
-    return reply.status(201).send({ user: data.user });
-  });
-
-  // Sign in
-  app.post('/signin', async (request, reply) => {
-    const { email, password } = request.body as { email: string; password: string };
-
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      return reply.status(401).send({ error: error.message });
-    }
-
-    return reply.send({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      user: data.user,
-    });
-  });
-
-  // Telegram Mini App auth
   app.post('/telegram', async (request, reply) => {
     const { initData } = request.body as { initData: string };
 
@@ -115,16 +68,78 @@ export async function authRoutes(app: FastifyInstance, _opts: FastifyPluginOptio
 
     const tgUser = JSON.parse(userStr);
     const telegramId = String(tgUser.id);
+    const email = deriveEmail(telegramId);
+    const password = derivePassword(telegramId, botToken);
+    const displayName = tgUser.first_name + (tgUser.last_name ? ` ${tgUser.last_name}` : '');
 
-    // Upsert profile
-    const { data: profile } = await supabaseAdmin.from('profiles').upsert(
-      {
+    // Check if profile already exists by telegram_id
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('telegram_id', telegramId)
+      .maybeSingle();
+
+    if (!existingProfile) {
+      // First-time user — create auth user
+      const { data: createdUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+
+      if (createError) {
+        return reply.status(500).send({ error: createError.message });
+      }
+
+      // Create profile
+      const trialEnds = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: profileError } = await supabaseAdmin.from('profiles').insert({
+        id: createdUser.user.id,
+        email,
         telegram_id: telegramId,
-        display_name: tgUser.first_name + (tgUser.last_name ? ` ${tgUser.last_name}` : ''),
-      },
-      { onConflict: 'telegram_id' },
-    ).select().single();
+        phone_number: tgUser.phone_number || null,
+        display_name: displayName,
+        trial_ends_at: trialEnds,
+      });
 
-    return reply.send({ profile });
+      if (profileError) {
+        return reply.status(500).send({ error: profileError.message });
+      }
+
+      // Create trial subscription
+      await supabaseAdmin.from('user_subscriptions').insert({
+        user_id: createdUser.user.id,
+        plan_id: null,
+        status: 'trial',
+        starts_at: new Date().toISOString(),
+        ends_at: trialEnds,
+      });
+    } else {
+      // Returning user — update profile with latest info
+      const updates: Record<string, unknown> = {};
+      if (displayName) updates.display_name = displayName;
+      if (tgUser.phone_number) updates.phone_number = tgUser.phone_number;
+
+      if (Object.keys(updates).length > 0) {
+        await supabaseAdmin.from('profiles').update(updates).eq('telegram_id', telegramId);
+      }
+    }
+
+    // Get auth session
+    const { data: signInData } = await supabase.auth.signInWithPassword({ email, password });
+
+    // Fetch profile
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('telegram_id', telegramId)
+      .single();
+
+    return reply.send({
+      access_token: signInData?.session?.access_token || null,
+      refresh_token: signInData?.session?.refresh_token || null,
+      profile,
+      is_new_user: !existingProfile,
+    });
   });
 }
